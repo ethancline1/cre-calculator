@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>CRE Investment Calculator v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg-primary: #0a0f1e;
+  --bg-card: #0f1830;
+  --bg-input: #080d1a;
+  --border: #1a2540;
+  --border-bright: #1e2d50;
+  --accent-blue: #0066ff;
+  --accent-cyan: #00b4d8;
+  --accent-green: #00e676;
+  --accent-amber: #ffab00;
+  --accent-red: #ff1744;
+  --text-primary: #e8eaf6;
+  --text-secondary: #8892a4;
+  --text-dim: #4a5568;
+  --glow-blue: rgba(0,102,255,0.15);
+  --s1: #0066ff; --s2: #00b4d8; --s3: #a855f7;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content:''; position:fixed; inset:0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);
+  pointer-events:none; z-index:1000;
+}
+body::after {
+  content:''; position:fixed; inset:0;
+  background-image: linear-gradient(rgba(0,102,255,.03) 1px,transparent 1px), linear-gradient(90deg,rgba(0,102,255,.03) 1px,transparent 1px);
+  background-size:40px 40px; pointer-events:none; z-index:0;
+}
+
+.container { position:relative; z-index:1; max-width:1340px; margin:0 auto; padding:16px; }
+
+/* ── HEADER ── */
+.header {
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border-bright); padding-bottom:12px; margin-bottom:20px;
+  flex-wrap:wrap; gap:10px;
+}
+.header-left { display:flex; align-items:center; gap:12px; }
+.terminal-badge {
+  background:var(--accent-blue); color:#fff; font-size:10px; font-weight:600;
+  letter-spacing:.12em; padding:3px 8px;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 50%,calc(100% - 6px) 100%,0 100%);
+  white-space:nowrap;
+}
+.header-title { font-family:'IBM Plex Sans',sans-serif; font-size:16px; font-weight:600; letter-spacing:.04em; }
+.header-title span { color:var(--accent-blue); }
+.header-right { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.live-indicator { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--accent-green); letter-spacing:.1em; }
+.live-dot { width:6px; height:6px; border-radius:50%; background:var(--accent-green); animation:pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,118,.4)} 50%{opacity:.7;box-shadow:0 0 0 4px rgba(0,230,118,0)} }
+.timestamp { font-size:10px; color:var(--text-dim); }
+
+/* ── EXPORT BUTTON ── */
+.btn-export {
+  display:flex; align-items:center; gap:6px;
+  background:transparent; border:1px solid var(--accent-cyan); color:var(--accent-cyan);
+  font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600;
+  letter-spacing:.1em; padding:6px 14px; cursor:pointer; transition:all .2s;
+  white-space:nowrap;
+}
+.btn-export:hover { background:var(--accent-cyan); color:#000; }
+.btn-export svg { flex-shrink:0; }
+
+/* ── TABS ── */
+.tabs { display:flex; gap:0; margin-bottom:20px; border-bottom:1px solid var(--border-bright); overflow-x:auto; }
+.tab-btn {
+  background:transparent; border:none; color:var(--text-dim);
+  font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.1em;
+  padding:10px 20px; cursor:pointer; border-bottom:2px solid transparent;
+  transition:all .2s; white-space:nowrap;
+}
+.tab-btn:hover { color:var(--text-secondary); }
+.tab-btn.active { color:var(--accent-blue); border-bottom-color:var(--accent-blue); }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* ── METRICS SUMMARY ── */
+.metrics-summary {
+  background:var(--bg-card); border:1px solid var(--border-bright);
+  border-top:2px solid var(--accent-blue); margin-bottom:20px;
+  position:relative; overflow:hidden;
+}
+.metrics-summary::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,var(--glow-blue) 0%,transparent 60%);
+  pointer-events:none;
+}
+.metrics-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:8px;
+}
+.metrics-label { font-size:10px; letter-spacing:.15em; color:var(--accent-blue); font-weight:600; }
+.deal-score { display:flex; align-items:center; gap:8px; font-size:10px; color:var(--text-secondary); }
+.score-value { font-size:14px; font-weight:600; color:var(--accent-green); transition:color .3s; }
+.metrics-grid { display:grid; grid-template-columns:repeat(6,1fr); }
+.metric-cell { padding:14px 12px; border-right:1px solid var(--border); position:relative; }
+.metric-cell:last-child { border-right:none; }
+.metric-cell-label { font-size:9px; letter-spacing:.1em; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; }
+.metric-cell-value { font-size:18px; font-weight:500; color:var(--text-primary); transition:all .3s; line-height:1; }
+.metric-cell-sub { font-size:9px; color:var(--text-secondary); margin-top:4px; }
+.metric-cell-value.positive{color:var(--accent-green)} .metric-cell-value.warning{color:var(--accent-amber)} .metric-cell-value.negative{color:var(--accent-red)}
+@keyframes flash { 0%{background:rgba(0,102,255,.2)} 100%{background:transparent} }
+.value-update { animation:flash .4s ease; }
+
+/* ── MAIN GRID ── */
+.main-grid { display:grid; grid-template-columns:380px 1fr; gap:20px; }
+.input-panel { display:flex; flex-direction:column; gap:16px; }
+.output-panel { display:flex; flex-direction:column; gap:16px; }
+
+/* ── PANEL ── */
+.panel { background:var(--bg-card); border:1px solid var(--border-bright); }
+.panel-header {
+  display:flex; align-items:center; gap:8px; padding:8px 14px;
+  border-bottom:1px solid var(--border); background:rgba(0,0,0,.2);
+}
+.panel-header-dot { width:8px; height:8px; background:var(--accent-blue); clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%); }
+.panel-title { font-size:10px; letter-spacing:.15em; color:var(--accent-blue); font-weight:600; text-transform:uppercase; }
+.panel-body { padding:16px; }
+
+/* ── INPUTS ── */
+.input-group { margin-bottom:14px; }
+.input-group:last-child { margin-bottom:0; }
+.input-label { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+.input-label-text { font-size:10px; letter-spacing:.08em; color:var(--text-secondary); text-transform:uppercase; }
+.input-label-unit { font-size:9px; color:var(--text-dim); }
+.input-row {
+  display:flex; align-items:center;
+  background:var(--bg-input); border:1px solid var(--border);
+  transition:border-color .2s,box-shadow .2s;
+}
+.input-row:focus-within { border-color:var(--accent-blue); box-shadow:0 0 0 2px rgba(0,102,255,.1); }
+.input-prefix {
+  padding:8px 10px; font-size:12px; color:var(--text-dim);
+  border-right:1px solid var(--border); background:rgba(0,0,0,.2);
+  user-select:none; min-width:32px; text-align:center;
+}
+.input-row input {
+  flex:1; background:transparent; border:none; outline:none;
+  color:var(--text-primary); font-family:'IBM Plex Mono',monospace;
+  font-size:13px; padding:8px 10px; width:100%; min-width:0;
+}
+.input-row input::placeholder { color:var(--text-dim); }
+.input-slider {
+  width:100%; margin-top:6px; -webkit-appearance:none;
+  height:2px; background:var(--border-bright); outline:none; cursor:pointer;
+}
+.input-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; width:12px; height:12px; background:var(--accent-blue);
+  clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%); cursor:pointer; transition:transform .2s;
+}
+.input-slider::-webkit-slider-thumb:hover { transform:scale(1.3); }
+.input-divider { display:flex; align-items:center; gap:8px; margin:12px 0; }
+.input-divider-line { flex:1; height:1px; background:var(--border); }
+.input-divider-text { font-size:9px; color:var(--text-dim); letter-spacing:.12em; }
+
+/* ── RESULTS ── */
+.results-grid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); }
+.result-block { background:var(--bg-card); padding:16px; position:relative; overflow:hidden; transition:background .3s; }
+.result-block::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+  background:var(--accent-blue); transform:scaleX(0); transform-origin:left; transition:transform .4s;
+}
+.result-block:hover::after { transform:scaleX(1); }
+.result-block-tag {
+  font-size:9px; letter-spacing:.14em; color:var(--text-dim);
+  text-transform:uppercase; margin-bottom:8px;
+  display:flex; align-items:center; gap:6px;
+}
+.result-block-tag::before { content:''; display:inline-block; width:4px; height:4px; background:var(--accent-cyan); }
+.result-value { font-size:30px; font-weight:500; line-height:1; color:var(--text-primary); transition:all .3s; margin-bottom:4px; }
+.result-value.positive{color:var(--accent-green)} .result-value.warning{color:var(--accent-amber)} .result-value.negative{color:var(--accent-red)}
+.result-desc { font-size:10px; color:var(--text-secondary); line-height:1.4; }
+.result-benchmark { margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font-size:9px; color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+.benchmark-bar-bg { flex:1; height:3px; background:var(--border-bright); position:relative; overflow:hidden; }
+.benchmark-bar-fill { position:absolute; left:0; top:0; height:100%; background:var(--accent-blue); transition:width .5s ease; max-width:100%; }
+
+/* ── TOOLTIP ── */
+.tooltip-wrap { position:relative; display:inline-flex; align-items:center; gap:5px; }
+.tip-icon {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:14px; height:14px; border-radius:50%;
+  border:1px solid var(--text-dim); color:var(--text-dim);
+  font-size:9px; cursor:help; flex-shrink:0; transition:all .2s;
+}
+.tip-icon:hover { border-color:var(--accent-cyan); color:var(--accent-cyan); }
+.tooltip-box {
+  visibility:hidden; opacity:0;
+  position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+  background:#1a2540; border:1px solid var(--border-bright);
+  color:var(--text-primary); font-size:11px; line-height:1.5;
+  padding:10px 12px; width:220px; z-index:999;
+  transition:opacity .2s; pointer-events:none;
+  font-family:'IBM Plex Sans',sans-serif; font-weight:400;
+}
+.tooltip-box::after {
+  content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+  border:5px solid transparent; border-top-color:#1a2540;
+}
+.tooltip-wrap:hover .tooltip-box { visibility:visible; opacity:1; }
+.tooltip-label { font-size:10px; font-weight:600; color:var(--accent-cyan); letter-spacing:.08em; margin-bottom:4px; font-family:'IBM Plex Mono',monospace; }
+.tooltip-formula { font-size:9px; color:var(--text-dim); margin-top:6px; border-top:1px solid var(--border); padding-top:6px; font-family:'IBM Plex Mono',monospace; }
+
+/* ── PROJECTION TABLE ── */
+.projection-table { width:100%; border-collapse:collapse; }
+.projection-table th {
+  font-size:9px; letter-spacing:.12em; color:var(--text-dim); text-transform:uppercase;
+  padding:6px 10px; text-align:right; border-bottom:1px solid var(--border);
+}
+.projection-table th:first-child { text-align:left; }
+.projection-table td {
+  padding:7px 10px; font-size:12px; text-align:right;
+  color:var(--text-secondary); border-bottom:1px solid rgba(26,37,64,.5); transition:all .3s;
+}
+.projection-table td:first-child { text-align:left; color:var(--text-dim); font-size:10px; }
+.projection-table tr:last-child td { border-bottom:none; }
+.projection-table tr:hover td { background:rgba(0,102,255,.04); color:var(--text-primary); }
+.positive-td{color:var(--accent-green)!important} .warning-td{color:var(--accent-amber)!important} .negative-td{color:var(--accent-red)!important}
+
+/* ── CASHFLOW CHART ── */
+.cashflow-chart { padding:16px; display:flex; flex-direction:column; gap:10px; }
+.cf-year-row { display:flex; align-items:center; gap:10px; }
+.cf-year-label { font-size:10px; color:var(--text-dim); width:36px; text-align:right; flex-shrink:0; }
+.cf-bar-track { flex:1; height:18px; background:var(--bg-input); border:1px solid var(--border); position:relative; overflow:hidden; }
+.cf-bar-fill { position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg,var(--accent-blue),var(--accent-cyan)); transition:width .6s cubic-bezier(.4,0,.2,1); }
+.cf-bar-fill.negative { background:linear-gradient(90deg,var(--accent-red),#ff6b6b); }
+.cf-value { font-size:11px; color:var(--text-secondary); width:80px; text-align:right; flex-shrink:0; }
+
+/* ── STATUS BAR ── */
+.status-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 16px; border-top:1px solid var(--border);
+  background:rgba(0,0,0,.3); font-size:9px; color:var(--text-dim); letter-spacing:.08em;
+  flex-wrap:wrap; gap:6px;
+}
+.status-item { display:flex; align-items:center; gap:6px; }
+.status-dot { width:4px; height:4px; border-radius:50%; background:var(--text-dim); }
+.status-dot.active { background:var(--accent-green); }
+
+/* ── SCENARIO COMPARISON ── */
+.scenario-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px; }
+.scenario-card { background:var(--bg-card); border:1px solid var(--border-bright); position:relative; overflow:hidden; }
+.scenario-card.active { border-color:var(--s1); }
+.scenario-card:nth-child(2) { border-top:2px solid var(--s2); }
+.scenario-card:nth-child(3) { border-top:2px solid var(--s3); }
+.scenario-card:nth-child(1) { border-top:2px solid var(--s1); }
+.scenario-label {
+  font-size:9px; letter-spacing:.15em; font-weight:600; padding:8px 14px 6px;
+  border-bottom:1px solid var(--border); background:rgba(0,0,0,.2);
+}
+.scenario-card:nth-child(1) .scenario-label { color:var(--s1); }
+.scenario-card:nth-child(2) .scenario-label { color:var(--s2); }
+.scenario-card:nth-child(3) .scenario-label { color:var(--s3); }
+.scenario-name-row {
+  display:flex; align-items:center; gap:8px; padding:8px 12px;
+  border-bottom:1px solid var(--border);
+}
+.scenario-name-input {
+  flex:1; background:transparent; border:none; outline:none;
+  color:var(--text-primary); font-family:'IBM Plex Mono',monospace;
+  font-size:11px; min-width:0;
+}
+.scenario-inputs { padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.sc-field label { font-size:8px; color:var(--text-dim); letter-spacing:.1em; text-transform:uppercase; display:block; margin-bottom:3px; }
+.sc-field .input-row { background:var(--bg-input); }
+.sc-field .input-row input { font-size:12px; padding:6px 8px; }
+.sc-field .input-prefix { padding:6px 8px; font-size:11px; }
+.scenario-results { padding:12px; border-top:1px solid var(--border); }
+.sc-metric-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(26,37,64,.4); }
+.sc-metric-row:last-child { border-bottom:none; }
+.sc-metric-name { font-size:9px; color:var(--text-dim); letter-spacing:.08em; }
+.sc-metric-val { font-size:13px; font-weight:500; }
+.sc-score-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0 4px; }
+.sc-score-label { font-size:9px; color:var(--text-dim); letter-spacing:.1em; }
+.sc-score-val { font-size:18px; font-weight:600; }
+.sc-bar-row { margin-top:4px; }
+.sc-bar-bg { height:4px; background:var(--border-bright); }
+.sc-bar-fill { height:100%; transition:width .6s ease; }
+.scenario-card:nth-child(1) .sc-bar-fill { background:var(--s1); }
+.scenario-card:nth-child(2) .sc-bar-fill { background:var(--s2); }
+.scenario-card:nth-child(3) .sc-bar-fill { background:var(--s3); }
+
+/* ── COMPARISON TABLE ── */
+.comparison-table { width:100%; border-collapse:collapse; }
+.comparison-table th {
+  font-size:9px; letter-spacing:.12em; color:var(--text-dim); text-transform:uppercase;
+  padding:8px 12px; border-bottom:1px solid var(--border); text-align:left;
+}
+.comparison-table th:nth-child(2){color:var(--s1)} .comparison-table th:nth-child(3){color:var(--s2)} .comparison-table th:nth-child(4){color:var(--s3)}
+.comparison-table td { padding:8px 12px; font-size:12px; border-bottom:1px solid rgba(26,37,64,.4); }
+.comparison-table tr:last-child td { border-bottom:none; }
+.comparison-table tr:hover td { background:rgba(0,102,255,.04); }
+.comparison-table td:first-child { font-size:10px; color:var(--text-dim); }
+.winner { font-weight:600; }
+.winner-s1 { color:var(--s1); } .winner-s2 { color:var(--s2); } .winner-s3 { color:var(--s3); }
+
+/* ── MOBILE ── */
+@media (max-width:900px) {
+  .main-grid { grid-template-columns:1fr; }
+  .metrics-grid { grid-template-columns:repeat(3,1fr); }
+  .metric-cell { border-bottom:1px solid var(--border); }
+  .metric-cell:nth-child(3){ border-right:none; }
+  .metric-cell:nth-child(4),
+  .metric-cell:nth-child(5),
+  .metric-cell:nth-child(6){ border-bottom:none; }
+  .scenario-grid { grid-template-columns:1fr; }
+  .header-title { font-size:13px; }
+}
+@media (max-width:600px) {
+  .container { padding:10px; }
+  .metrics-grid { grid-template-columns:repeat(2,1fr); }
+  .metric-cell:nth-child(2){ border-right:1px solid var(--border); }
+  .metric-cell:nth-child(3){ border-right:none; border-bottom:1px solid var(--border); }
+  .metric-cell:nth-child(4){ border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .metric-cell:nth-child(5){ border-right:none; border-bottom:1px solid var(--border); }
+  .metric-cell:nth-child(6){ border-right:none; border-bottom:none; }
+  .results-grid { grid-template-columns:1fr; }
+  .header-title { display:none; }
+  .terminal-badge { font-size:9px; }
+  .tab-btn { padding:10px 12px; font-size:10px; }
+  .result-value { font-size:24px; }
+  .scenario-inputs { grid-template-columns:1fr; }
+  .status-bar { font-size:8px; }
+  .status-bar > div:last-child { display:none; }
+}
+
+/* ── PRINT / PDF ── */
+@media print {
+  body { background:#fff !important; color:#000 !important; font-size:11px; }
+  body::before, body::after { display:none; }
+  .tabs, .btn-export, .input-panel, .tab-btn, .status-bar { display:none !important; }
+  .tab-content { display:block !important; }
+  :root {
+    --bg-card:#fff; --bg-primary:#fff; --border:#ccc; --border-bright:#bbb;
+    --text-primary:#000; --text-secondary:#444; --text-dim:#777;
+    --accent-blue:#003399; --accent-cyan:#006688; --accent-green:#006600;
+    --accent-amber:#885500; --accent-red:#cc0000;
+  }
+  .main-grid { grid-template-columns:1fr; }
+  .metrics-summary { border:2px solid #003399; }
+  .panel { border:1px solid #ccc; page-break-inside:avoid; }
+  .metrics-grid { grid-template-columns:repeat(6,1fr); }
+  .scenario-grid { grid-template-columns:repeat(3,1fr); }
+  .print-header {
+    display:block !important;
+    text-align:center; padding:16px 0; border-bottom:2px solid #003399; margin-bottom:20px;
+  }
+  .print-header h1 { font-size:20px; color:#003399; font-family:'IBM Plex Sans',sans-serif; }
+  .print-header p { font-size:10px; color:#777; margin-top:4px; }
+  body::before { display:none; }
+}
+.print-header { display:none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- PRINT-ONLY HEADER -->
+  <div class="print-header">
+    <h1>CRE Investment Analysis Report</h1>
+    <p id="printDate"></p>
+  </div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="terminal-badge">CRE ANALYTICS</div>
+      <div class="header-title">COMMERCIAL <span>REAL ESTATE</span> CALCULATOR</div>
+    </div>
+    <div class="header-right">
+      <div class="live-indicator"><div class="live-dot"></div> LIVE CALC</div>
+      <div class="timestamp" id="timestamp"></div>
+      <button class="btn-export" onclick="exportPDF()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        EXPORT PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('calculator',this)">▶ CALCULATOR</button>
+    <button class="tab-btn" onclick="switchTab('scenarios',this)">⊞ SCENARIO COMPARISON</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- TAB 1: CALCULATOR                          -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="tab-content active" id="tab-calculator">
+
+    <!-- KEY METRICS SUMMARY -->
+    <div class="metrics-summary">
+      <div class="metrics-header">
+        <div class="metrics-label">▶ KEY METRICS SUMMARY</div>
+        <div class="deal-score">DEAL SCORE &nbsp;<span class="score-value" id="dealScore">—</span></div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-cell">
+          <div class="metric-cell-label">NOI / YR</div>
+          <div class="metric-cell-value" id="sum-noi">—</div>
+          <div class="metric-cell-sub">NET OPER. INCOME</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-cell-label">CAP RATE</div>
+          <div class="metric-cell-value" id="sum-cap">—</div>
+          <div class="metric-cell-sub">BENCHMARK: 5–8%</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-cell-label">COC RETURN</div>
+          <div class="metric-cell-value" id="sum-coc">—</div>
+          <div class="metric-cell-sub">BENCHMARK: 8–12%</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-cell-label">DSCR</div>
+          <div class="metric-cell-value" id="sum-dscr">—</div>
+          <div class="metric-cell-sub">MIN LENDER: 1.25x</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-cell-label">5-YR IRR</div>
+          <div class="metric-cell-value" id="sum-irr">—</div>
+          <div class="metric-cell-sub">TARGET: &gt;12%</div>
+        </div>
+        <div class="metric-cell">
+          <div class="metric-cell-label">BREAK-EVEN OCC.</div>
+          <div class="metric-cell-value" id="sum-beo">—</div>
+          <div class="metric-cell-sub">LOWER IS SAFER</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="main-grid">
+
+      <!-- INPUT PANEL -->
+      <div class="input-panel">
+
+        <div class="panel">
+          <div class="panel-header"><div class="panel-header-dot"></div><div class="panel-title">ACQUISITION PARAMETERS</div></div>
+          <div class="panel-body">
+            <div class="input-group">
+              <div class="input-label"><span class="input-label-text">Purchase Price</span><span class="input-label-unit">USD</span></div>
+              <div class="input-row"><span class="input-prefix">$</span><input type="number" id="purchasePrice" value="2500000" min="0" step="10000"></div>
+            </div>
+            <div class="input-group">
+              <div class="input-label"><span class="input-label-text">Down Payment</span><span class="input-label-unit" id="dpLabel">25.0%</span></div>
+              <div class="input-row"><span class="input-prefix">%</span><input type="number" id="downPayment" value="25" min="1" max="100" step="1"></div>
+              <input type="range" class="input-slider" id="dpSlider" min="5" max="50" value="25" step="1">
+            </div>
+            <div class="input-group">
+              <div class="input-label"><span class="input-label-text">Expected Annual Appreciation</span><span class="input-label-unit" id="appLabel">3.0%</span></div>
+              <div class="input-row"><span class="input-prefix">%</span><input type="number" id="appreciation" value="3" min="0" max="20" step="0.1"></div>
+              <input type="range" class="input-slider" id="appSlider" min="0" max="10" value="3" step="0.5">
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><div class="panel-header-dot"></div><div class="panel-title">INCOME & EXPENSES</div></div>
+          <div class="panel-body">
+            <div class="input-group">
+              <div class="input-label"><span class="input-label-text">Annual Rental Income</span><span class="input-label-unit">GROSS</span></div>
+              <div class="input-row"><span class="input-prefix">$</span><input type="number" id="rentalIncome" value="220000" min="0" step="1000"></div>
+            </div>
+            <div class="input-group">
+              <div class="input-label"><span class="input-label-text">Annual Operating Expenses</span><span class="input-label-unit">OPEX</span></div>
+              <div class="input-row"><span class="input-prefix">$</span><input type="number" id="opex" value="55000" min="0" step="1000"></div>
+            </div>
+            <div class="input-divider"><div class="input-divider-line"></div><div class="input-divider-text">COMPUTED</div><div class="input-divider-line"></div></div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase">Expense Ratio</span>
+              <span style="font-size:13px;color:var(--accent-amber)" id="expRatio">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><div class="panel-header-dot"></div><div class="panel-title">DEBT FINANCING</div></div>
+          <div class="panel-body">
+            <div class="input-group">
+              <div class="input-label"><span class="input-label-text">Interest Rate</span><span class="input-label-unit" id="rateLabel">6.50%</span></div>
+              <div class="input-row"><span class="input-prefix">%</span><input type="number" id="interestRate" value="6.5" min="0" max="25" step="0.1"></div>
+              <input type="range" class="input-slider" id="rateSlider" min="3" max="12" value="6.5" step="0.25">
+            </div>
+            <div class="input-group">
+              <div class="input-label"><span class="input-label-text">Loan Term</span><span class="input-label-unit" id="termLabel">30 YRS</span></div>
+              <div class="input-row"><span class="input-prefix">YR</span><input type="number" id="loanTerm" value="30" min="5" max="30" step="5"></div>
+              <input type="range" class="input-slider" id="termSlider" min="5" max="30" value="30" step="5">
+            </div>
+            <div class="input-divider"><div class="input-divider-line"></div><div class="input-divider-text">COMPUTED</div><div class="input-divider-line"></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><div style="font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">Loan Amount</div><div style="font-size:13px;color:var(--text-primary)" id="loanAmt">—</div></div>
+              <div><div style="font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px">Ann. Debt Svc</div><div style="font-size:13px;color:var(--text-primary)" id="annualDS">—</div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- OUTPUT PANEL -->
+      <div class="output-panel">
+
+        <div class="panel">
+          <div class="panel-header"><div class="panel-header-dot"></div><div class="panel-title">ANALYSIS OUTPUT</div></div>
+          <div class="results-grid" style="border:none;gap:1px;background:var(--border)">
+
+            <div class="result-block">
+              <div class="result-block-tag">
+                <span class="tooltip-wrap">NET OPERATING INCOME<span class="tip-icon">?</span><div class="tooltip-box"><div class="tooltip-label">NET OPERATING INCOME</div>Annual property income after all operating costs are paid, before any loan payments. The foundational measure of a property's earning power.<div class="tooltip-formula">FORMULA: Gross Income − Operating Expenses</div></div></span>
+              </div>
+              <div class="result-value" id="r-noi">—</div>
+              <div class="result-desc">Annual income after operating<br>expenses, before debt service</div>
+              <div class="result-benchmark"><span>OPEX RATIO</span><div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-opex" style="width:0%"></div></div><span id="bm-opex">—</span></div>
+            </div>
+
+            <div class="result-block">
+              <div class="result-block-tag">
+                <span class="tooltip-wrap">CAPITALIZATION RATE<span class="tip-icon">?</span><div class="tooltip-box"><div class="tooltip-label">CAP RATE</div>The unlevered yield you'd earn if you paid all cash. Used to compare properties regardless of financing. Higher = better return on asset value.<div class="tooltip-formula">FORMULA: NOI ÷ Purchase Price × 100</div></div></span>
+              </div>
+              <div class="result-value" id="r-cap">—</div>
+              <div class="result-desc">Unlevered return on asset.<br>Market benchmark: 5–8%</div>
+              <div class="result-benchmark"><span>VS BENCHMARK</span><div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-cap" style="width:0%"></div></div><span id="bm-cap">—</span></div>
+            </div>
+
+            <div class="result-block">
+              <div class="result-block-tag">
+                <span class="tooltip-wrap">CASH-ON-CASH RETURN<span class="tip-icon">?</span><div class="tooltip-box"><div class="tooltip-label">CASH-ON-CASH RETURN</div>The actual cash yield on the money you personally put in. Unlike cap rate, this accounts for your mortgage. A 10%+ CoC is generally considered strong.<div class="tooltip-formula">FORMULA: Annual Cash Flow ÷ Equity Invested × 100</div></div></span>
+              </div>
+              <div class="result-value" id="r-coc">—</div>
+              <div class="result-desc">Pre-tax cash yield on equity<br>deployed. Target: 8–12%</div>
+              <div class="result-benchmark"><span>VS 10% TARGET</span><div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-coc" style="width:0%"></div></div><span id="bm-coc">—</span></div>
+            </div>
+
+            <div class="result-block">
+              <div class="result-block-tag">
+                <span class="tooltip-wrap">DEBT SERVICE COVERAGE<span class="tip-icon">?</span><div class="tooltip-box"><div class="tooltip-label">DSCR</div>How many times over your NOI covers your annual loan payments. Most commercial lenders require ≥ 1.25x. Below 1.0x means the property can't pay its own debt.<div class="tooltip-formula">FORMULA: NOI ÷ Annual Debt Service</div></div></span>
+              </div>
+              <div class="result-value" id="r-dscr">—</div>
+              <div class="result-desc">Lenders require ≥ 1.25x.<br>Higher = more cushion</div>
+              <div class="result-benchmark"><span>VS 1.25x MIN</span><div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-dscr" style="width:0%"></div></div><span id="bm-dscr">—</span></div>
+            </div>
+
+            <div class="result-block">
+              <div class="result-block-tag">
+                <span class="tooltip-wrap">5-YEAR IRR<span class="tip-icon">?</span><div class="tooltip-box"><div class="tooltip-label">INTERNAL RATE OF RETURN</div>Your total annualized return over a 5-year hold, including all cash flows AND the profit from selling. Accounts for the time-value of money. Target: 12%+.<div class="tooltip-formula">FORMULA: Discount rate where NPV = 0 (Newton's method)</div></div></span>
+              </div>
+              <div class="result-value" id="r-irr">—</div>
+              <div class="result-desc">Levered total return incl.<br>appreciation + cash flows</div>
+              <div class="result-benchmark"><span>VS 12% TARGET</span><div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-irr" style="width:0%"></div></div><span id="bm-irr">—</span></div>
+            </div>
+
+            <div class="result-block">
+              <div class="result-block-tag">
+                <span class="tooltip-wrap">BREAK-EVEN OCCUPANCY<span class="tip-icon">?</span><div class="tooltip-box"><div class="tooltip-label">BREAK-EVEN OCCUPANCY</div>The minimum occupancy rate needed to cover all your operating expenses AND debt payments. The lower this is, the more vacancy you can absorb before losing money.<div class="tooltip-formula">FORMULA: (OPEX + Debt Service) ÷ Gross Income × 100</div></div></span>
+              </div>
+              <div class="result-value" id="r-beo">—</div>
+              <div class="result-desc">Min. occupancy to cover OPEX<br>+ debt service. Lower = safer</div>
+              <div class="result-benchmark"><span>SAFETY MARGIN</span><div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-beo" style="width:0%"></div></div><span id="bm-beo">—</span></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 5-YEAR PROJECTION -->
+        <div class="panel">
+          <div class="panel-header"><div class="panel-header-dot"></div><div class="panel-title">5-YEAR PROJECTION</div></div>
+          <div style="overflow-x:auto">
+            <table class="projection-table" style="padding:0 4px">
+              <thead><tr><th>YEAR</th><th>PROP. VALUE</th><th>GROSS INCOME</th><th>NOI</th><th>DEBT SVC</th><th>CASH FLOW</th><th>EQUITY</th></tr></thead>
+              <tbody id="projectionBody"></tbody>
+            </table>
+          </div>
+          <div class="panel-header" style="margin-top:1px;border-top:1px solid var(--border)">
+            <div class="panel-header-dot" style="background:var(--accent-cyan)"></div>
+            <div class="panel-title" style="color:var(--accent-cyan)">ANNUAL CASH FLOW VISUALIZATION</div>
+          </div>
+          <div class="cashflow-chart" id="cfChart"></div>
+          <div class="status-bar">
+            <div style="display:flex;gap:16px;flex-wrap:wrap">
+              <div class="status-item"><div class="status-dot active"></div> REAL-TIME ENGINE</div>
+              <div class="status-item"><div class="status-dot"></div> SIMPLIFIED IRR</div>
+              <div class="status-item"><div class="status-dot"></div> 3% INCOME GROWTH ASSUMED</div>
+            </div>
+            <div>NOT FINANCIAL ADVICE</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- TAB 2: SCENARIO COMPARISON                 -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="tab-content" id="tab-scenarios">
+
+    <div class="scenario-grid" id="scenarioGrid">
+      <!-- Rendered by JS -->
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="panel">
+      <div class="panel-header"><div class="panel-header-dot"></div><div class="panel-title">SIDE-BY-SIDE COMPARISON</div></div>
+      <div style="overflow-x:auto">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>METRIC</th>
+              <th id="col-s1">SCENARIO A</th>
+              <th id="col-s2">SCENARIO B</th>
+              <th id="col-s3">SCENARIO C</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonBody"></tbody>
+        </table>
+      </div>
+      <div class="status-bar">
+        <div class="status-item"><div class="status-dot active"></div> WINNER HIGHLIGHTED PER METRIC</div>
+        <div>FOR ANALYTICAL USE ONLY</div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ── UTILITIES ──────────────────────────────────
+function fmt$(n){if(isNaN(n)||!isFinite(n))return'—';if(Math.abs(n)>=1e6)return'$'+(n/1e6).toFixed(2)+'M';if(Math.abs(n)>=1e3)return'$'+Math.round(n).toLocaleString();return'$'+n.toFixed(0);}
+function fmtPct(n,d=1){if(isNaN(n)||!isFinite(n))return'—';return n.toFixed(d)+'%';}
+function fmtX(n){if(isNaN(n)||!isFinite(n))return'—';return n.toFixed(2)+'x';}
+function colorClass(v,t){if(v>=t[0])return'positive';if(v>=t[1])return'warning';return'negative';}
+function flashEl(id){const e=document.getElementById(id);if(!e)return;e.classList.remove('value-update');void e.offsetWidth;e.classList.add('value-update');}
+
+function calcAnnualDS(p,r,t){if(r===0)return p/t;const m=r/12,n=t*12,mo=p*m*Math.pow(1+m,n)/(Math.pow(1+m,n)-1);return mo*12;}
+function loanBal(p,r,t,y){if(r===0)return p-(p/t)*y;const m=r/12,n=t*12,pd=y*12;return p*(Math.pow(1+m,n)-Math.pow(1+m,pd))/(Math.pow(1+m,n)-1);}
+function calcIRR(cf){let r=0.1;for(let i=0;i<200;i++){let npv=0,dnpv=0;cf.forEach((v,t)=>{npv+=v/Math.pow(1+r,t);dnpv-=t*v/Math.pow(1+r,t+1);});if(Math.abs(npv)<.01)break;r-=npv/dnpv;if(r<-.99)r=-.99;}return r;}
+
+function computeMetrics(price,dpPct,income,opex,rate,term,apprPct){
+  const equity=price*dpPct/100, loan=price-equity;
+  const ads=calcAnnualDS(loan,rate/100,term);
+  const noi=income-opex;
+  const capRate=price>0?noi/price*100:0;
+  const cf=noi-ads;
+  const coc=equity>0?cf/equity*100:0;
+  const dscr=ads>0?noi/ads:0;
+  const beo=income>0?(opex+ads)/income*100:0;
+  const expRatio=income>0?opex/income*100:0;
+  const flows=[-equity];
+  for(let y=1;y<=5;y++){
+    const pv=price*Math.pow(1+apprPct/100,y);
+    const yi=income*Math.pow(1.03,y-1), yo=opex*Math.pow(1.025,y-1);
+    const ycf=(yi-yo)-ads;
+    if(y<5){flows.push(ycf);}
+    else{const rem=loanBal(loan,rate/100,term,5);flows.push(ycf+pv-rem-pv*.05);}
+  }
+  const irr=calcIRR(flows)*100;
+  let score=0;
+  if(capRate>=6)score+=20;else if(capRate>=4)score+=10;
+  if(coc>=8)score+=20;else if(coc>=4)score+=10;
+  if(dscr>=1.5)score+=20;else if(dscr>=1.25)score+=10;
+  if(irr>=15)score+=20;else if(irr>=10)score+=10;
+  if(beo<70)score+=20;else if(beo<85)score+=10;
+  return{equity,loan,ads,noi,capRate,cf,coc,dscr,beo,expRatio,irr,score};
+}
+
+// ── TIMESTAMP ──────────────────────────────────
+function updateTime(){
+  const n=new Date();
+  document.getElementById('timestamp').textContent=
+    n.toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'})+
+    '  '+n.toLocaleTimeString('en-US',{hour12:false});
+  document.getElementById('printDate').textContent=
+    'Generated: '+n.toLocaleString('en-US');
+}
+updateTime(); setInterval(updateTime,1000);
+
+// ── TABS ───────────────────────────────────────
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='scenarios') renderScenarios();
+}
+
+// ── MAIN CALCULATOR ────────────────────────────
+const sliderPairs=[
+  ['dpSlider','downPayment','dpLabel',v=>v.toFixed(1)+'%'],
+  ['appSlider','appreciation','appLabel',v=>v.toFixed(1)+'%'],
+  ['rateSlider','interestRate','rateLabel',v=>v.toFixed(2)+'%'],
+  ['termSlider','loanTerm','termLabel',v=>v.toFixed(0)+' YRS'],
+];
+sliderPairs.forEach(([sid,iid,lid,fmt])=>{
+  const sl=document.getElementById(sid),inp=document.getElementById(iid),lbl=document.getElementById(lid);
+  sl.addEventListener('input',()=>{inp.value=sl.value;if(lbl)lbl.textContent=fmt(parseFloat(sl.value));calculate();});
+  inp.addEventListener('input',()=>{sl.value=inp.value;if(lbl)lbl.textContent=fmt(parseFloat(inp.value)||0);calculate();});
+});
+['purchasePrice','rentalIncome','opex'].forEach(id=>document.getElementById(id).addEventListener('input',calculate));
+
+function setResult(id,text,cls){const e=document.getElementById(id);if(!e)return;e.textContent=text;e.className='result-value '+(cls||'');}
+function setSummary(id,text,cls){const e=document.getElementById(id);if(!e)return;e.textContent=text;e.className='metric-cell-value '+(cls||'');}
+function setBar(bid,lid,pct,lt){const b=document.getElementById(bid),l=document.getElementById(lid);if(b)b.style.width=Math.min(Math.max(pct,0),100)+'%';if(l)l.textContent=lt;}
+
+function calculate(){
+  const price=parseFloat(document.getElementById('purchasePrice').value)||0;
+  const dpPct=parseFloat(document.getElementById('downPayment').value)||0;
+  const income=parseFloat(document.getElementById('rentalIncome').value)||0;
+  const opex=parseFloat(document.getElementById('opex').value)||0;
+  const rate=parseFloat(document.getElementById('interestRate').value)||0;
+  const term=parseFloat(document.getElementById('loanTerm').value)||30;
+  const apprPct=parseFloat(document.getElementById('appreciation').value)||0;
+  const m=computeMetrics(price,dpPct,income,opex,rate,term,apprPct);
+
+  document.getElementById('loanAmt').textContent=fmt$(m.loan);
+  document.getElementById('annualDS').textContent=fmt$(m.ads);
+  document.getElementById('expRatio').textContent=fmtPct(m.expRatio);
+
+  setResult('r-noi',fmt$(m.noi),colorClass(m.noi,[0,-Infinity]));
+  setSummary('sum-noi',fmt$(m.noi),colorClass(m.noi,[0,-Infinity]));
+  setBar('bar-opex','bm-opex',m.expRatio,fmtPct(m.expRatio));
+
+  const capCls=colorClass(m.capRate,[6,4]);
+  setResult('r-cap',fmtPct(m.capRate),capCls); setSummary('sum-cap',fmtPct(m.capRate),capCls);
+  setBar('bar-cap','bm-cap',m.capRate/10*100,fmtPct(m.capRate));
+
+  const cocCls=colorClass(m.coc,[8,4]);
+  setResult('r-coc',fmtPct(m.coc),cocCls); setSummary('sum-coc',fmtPct(m.coc),cocCls);
+  setBar('bar-coc','bm-coc',m.coc/10*100,fmtPct(m.coc));
+
+  const dCls=colorClass(m.dscr,[1.5,1.25]);
+  setResult('r-dscr',fmtX(m.dscr),dCls); setSummary('sum-dscr',fmtX(m.dscr),dCls);
+  setBar('bar-dscr','bm-dscr',m.dscr/2*100,fmtX(m.dscr));
+
+  const iCls=colorClass(m.irr,[15,10]);
+  setResult('r-irr',fmtPct(m.irr),iCls); setSummary('sum-irr',fmtPct(m.irr),iCls);
+  setBar('bar-irr','bm-irr',m.irr/20*100,fmtPct(m.irr));
+
+  const bCls=m.beo<70?'positive':m.beo<85?'warning':'negative';
+  setResult('r-beo',fmtPct(m.beo),bCls); setSummary('sum-beo',fmtPct(m.beo),bCls);
+  const sm=Math.max(0,100-m.beo);
+  setBar('bar-beo','bm-beo',sm,fmtPct(sm)+' MARGIN');
+
+  const se=document.getElementById('dealScore');
+  se.textContent=m.score+'/100';
+  se.style.color=m.score>=80?'var(--accent-green)':m.score>=50?'var(--accent-amber)':'var(--accent-red)';
+
+  // Projection table
+  const tbody=document.getElementById('projectionBody'); tbody.innerHTML='';
+  for(let y=1;y<=5;y++){
+    const pv=price*Math.pow(1+apprPct/100,y);
+    const yi=income*Math.pow(1.03,y-1), yo=opex*Math.pow(1.025,y-1);
+    const yn=yi-yo, ycf=yn-m.ads;
+    const rem=loanBal(m.loan,rate/100,term,y), eq=pv-rem;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>YEAR ${y}</td><td>${fmt$(pv)}</td><td>${fmt$(yi)}</td><td class="${yn>=0?'positive-td':'warning-td'}">${fmt$(yn)}</td><td>${fmt$(m.ads)}</td><td class="${ycf>=0?'positive-td':'warning-td'}">${fmt$(ycf)}</td><td class="positive-td">${fmt$(eq)}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  // CF chart
+  const ce=document.getElementById('cfChart'); ce.innerHTML='';
+  const cfs=[1,2,3,4,5].map(y=>{const yi=income*Math.pow(1.03,y-1),yo=opex*Math.pow(1.025,y-1);return yi-yo-m.ads;});
+  const maxA=Math.max(...cfs.map(Math.abs),1);
+  cfs.forEach((cf,i)=>{
+    const pct=Math.abs(cf)/maxA*100;
+    const row=document.createElement('div'); row.className='cf-year-row';
+    row.innerHTML=`<div class="cf-year-label">YR ${i+1}</div><div class="cf-bar-track"><div class="cf-bar-fill ${cf<0?'negative':''}" style="width:${pct}%"></div></div><div class="cf-value ${cf>=0?'':'negative-td'}">${fmt$(cf)}</div>`;
+    ce.appendChild(row);
+  });
+
+  ['sum-noi','sum-cap','sum-coc','sum-dscr','sum-irr','sum-beo'].forEach(flashEl);
+}
+calculate();
+
+// ── SCENARIO COMPARISON ─────────────────────────
+const scenarioDefaults=[
+  {name:'CONSERVATIVE',price:2000000,dp:30,income:180000,opex:50000,rate:7,term:30,appr:2},
+  {name:'BASE CASE',price:2500000,dp:25,income:220000,opex:55000,rate:6.5,term:30,appr:3},
+  {name:'AGGRESSIVE',price:3000000,dp:20,income:290000,opex:65000,rate:6,term:30,appr:5},
+];
+
+function scInputHtml(id,prefix,val){
+  return `<div class="input-row"><span class="input-prefix">${prefix}</span><input type="number" id="${id}" value="${val}" oninput="recalcScenarios()"></div>`;
+}
+
+function renderScenarios(){
+  const grid=document.getElementById('scenarioGrid'); grid.innerHTML='';
+  const labels=['SCENARIO A','SCENARIO B','SCENARIO C'];
+  scenarioDefaults.forEach((s,i)=>{
+    const card=document.createElement('div'); card.className='scenario-card';
+    card.innerHTML=`
+      <div class="scenario-label">${labels[i]}</div>
+      <div class="scenario-name-row">
+        <input class="scenario-name-input" id="sc${i}-name" value="${s.name}" oninput="recalcScenarios()" placeholder="Scenario name">
+      </div>
+      <div class="scenario-inputs">
+        <div class="sc-field"><label>Purchase Price</label>${scInputHtml('sc'+i+'-price','$',s.price)}</div>
+        <div class="sc-field"><label>Down Payment %</label>${scInputHtml('sc'+i+'-dp','%',s.dp)}</div>
+        <div class="sc-field"><label>Annual Income</label>${scInputHtml('sc'+i+'-income','$',s.income)}</div>
+        <div class="sc-field"><label>Annual OPEX</label>${scInputHtml('sc'+i+'-opex','$',s.opex)}</div>
+        <div class="sc-field"><label>Interest Rate %</label>${scInputHtml('sc'+i+'-rate','%',s.rate)}</div>
+        <div class="sc-field"><label>Loan Term (Yrs)</label>${scInputHtml('sc'+i+'-term','YR',s.term)}</div>
+        <div class="sc-field"><label>Appreciation %</label>${scInputHtml('sc'+i+'-appr','%',s.appr)}</div>
+      </div>
+      <div class="scenario-results" id="sc${i}-results"></div>
+    `;
+    grid.appendChild(card);
+  });
+  recalcScenarios();
+}
+
+function getScVal(i,field){return parseFloat(document.getElementById('sc'+i+'-'+field)?.value)||0;}
+
+function recalcScenarios(){
+  const allMetrics=[];
+  for(let i=0;i<3;i++){
+    const m=computeMetrics(
+      getScVal(i,'price'),getScVal(i,'dp'),getScVal(i,'income'),
+      getScVal(i,'opex'),getScVal(i,'rate'),getScVal(i,'term')||30,getScVal(i,'appr')
+    );
+    allMetrics.push(m);
+
+    const cls=m.score>=80?'var(--accent-green)':m.score>=50?'var(--accent-amber)':'var(--accent-red)';
+    const el=document.getElementById('sc'+i+'-results');
+    if(!el)continue;
+    el.innerHTML=`
+      <div class="sc-metric-row"><span class="sc-metric-name">NOI</span><span class="sc-metric-val ${colorClass(m.noi,[0,-Infinity])}">${fmt$(m.noi)}</span></div>
+      <div class="sc-metric-row"><span class="sc-metric-name">CAP RATE</span><span class="sc-metric-val ${colorClass(m.capRate,[6,4])}">${fmtPct(m.capRate)}</span></div>
+      <div class="sc-metric-row"><span class="sc-metric-name">COC RETURN</span><span class="sc-metric-val ${colorClass(m.coc,[8,4])}">${fmtPct(m.coc)}</span></div>
+      <div class="sc-metric-row"><span class="sc-metric-name">DSCR</span><span class="sc-metric-val ${colorClass(m.dscr,[1.5,1.25])}">${fmtX(m.dscr)}</span></div>
+      <div class="sc-metric-row"><span class="sc-metric-name">5-YR IRR</span><span class="sc-metric-val ${colorClass(m.irr,[15,10])}">${fmtPct(m.irr)}</span></div>
+      <div class="sc-metric-row"><span class="sc-metric-name">BREAK-EVEN OCC.</span><span class="sc-metric-val ${m.beo<70?'positive':m.beo<85?'warning':'negative'}">${fmtPct(m.beo)}</span></div>
+      <div class="sc-score-row">
+        <span class="sc-score-label">DEAL SCORE</span>
+        <span class="sc-score-val" style="color:${cls}">${m.score}/100</span>
+      </div>
+      <div class="sc-bar-row"><div class="sc-bar-bg"><div class="sc-bar-fill" style="width:${m.score}%"></div></div></div>
+    `;
+  }
+
+  // Update comparison table
+  const names=[0,1,2].map(i=>document.getElementById('sc'+i+'-name')?.value||('S'+(i+1)));
+  [0,1,2].forEach(i=>{const e=document.getElementById('col-s'+(i+1));if(e)e.textContent=names[i];});
+
+  const metrics=[
+    {label:'NOI',vals:allMetrics.map(m=>m.noi),fmt:fmt$,higher:true},
+    {label:'CAP RATE',vals:allMetrics.map(m=>m.capRate),fmt:fmtPct,higher:true},
+    {label:'CASH-ON-CASH',vals:allMetrics.map(m=>m.coc),fmt:fmtPct,higher:true},
+    {label:'DSCR',vals:allMetrics.map(m=>m.dscr),fmt:fmtX,higher:true},
+    {label:'5-YR IRR',vals:allMetrics.map(m=>m.irr),fmt:fmtPct,higher:true},
+    {label:'BREAK-EVEN OCC.',vals:allMetrics.map(m=>m.beo),fmt:fmtPct,higher:false},
+    {label:'DEAL SCORE',vals:allMetrics.map(m=>m.score),fmt:v=>v+'/100',higher:true},
+  ];
+
+  const scColors=['winner-s1','winner-s2','winner-s3'];
+  const tbody=document.getElementById('comparisonBody'); tbody.innerHTML='';
+  metrics.forEach(({label,vals,fmt,higher})=>{
+    const best=higher?Math.max(...vals):Math.min(...vals);
+    const tr=document.createElement('tr');
+    const cells=vals.map((v,i)=>{
+      const w=v===best;
+      return `<td class="${w?'winner '+scColors[i]:''}">${fmt(v)}${w?' ▲':''}</td>`;
+    });
+    tr.innerHTML=`<td>${label}</td>${cells.join('')}`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── PDF EXPORT ─────────────────────────────────
+function exportPDF(){
+  // Make both tabs visible for print
+  document.querySelectorAll('.tab-content').forEach(t=>t.style.display='block');
+  window.print();
+  setTimeout(()=>{
+    document.querySelectorAll('.tab-content').forEach(t=>t.style.display='');
+    document.querySelector('.tab-content.active').style.display='block';
+  },1000);
+}
+</script>
+</body>
+</html>
