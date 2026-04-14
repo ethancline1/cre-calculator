@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRE Investment Calculator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg-primary: #0a0f1e;
+    --bg-secondary: #0d1426;
+    --bg-card: #0f1830;
+    --bg-input: #080d1a;
+    --border: #1a2540;
+    --border-bright: #1e2d50;
+    --accent-blue: #0066ff;
+    --accent-cyan: #00b4d8;
+    --accent-green: #00e676;
+    --accent-amber: #ffab00;
+    --accent-red: #ff1744;
+    --text-primary: #e8eaf6;
+    --text-secondary: #8892a4;
+    --text-dim: #4a5568;
+    --glow-blue: rgba(0, 102, 255, 0.15);
+    --glow-green: rgba(0, 230, 118, 0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Grid background */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0, 102, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 102, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-bright);
+    padding-bottom: 14px;
+    margin-bottom: 24px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .terminal-badge {
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    padding: 3px 8px;
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%);
+  }
+
+  .header-title {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text-primary);
+  }
+
+  .header-title span {
+    color: var(--accent-blue);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--accent-green);
+    letter-spacing: 0.1em;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(0, 230, 118, 0); }
+  }
+
+  .timestamp {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  /* Key Metrics Summary Card */
+  .metrics-summary {
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-top: 2px solid var(--accent-blue);
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metrics-summary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--glow-blue) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .metrics-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .metrics-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--accent-blue);
+    font-weight: 600;
+  }
+
+  .deal-score {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .score-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-green);
+    transition: color 0.3s ease;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0;
+  }
+
+  .metric-cell {
+    padding: 14px 16px;
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+
+  .metric-cell:last-child { border-right: none; }
+
+  .metric-cell-label {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .metric-cell-value {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    line-height: 1;
+  }
+
+  .metric-cell-sub {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  .metric-cell-value.positive { color: var(--accent-green); }
+  .metric-cell-value.warning { color: var(--accent-amber); }
+  .metric-cell-value.negative { color: var(--accent-red); }
+
+  .value-update {
+    animation: flash 0.4s ease;
+  }
+
+  @keyframes flash {
+    0% { background: rgba(0, 102, 255, 0.2); }
+    100% { background: transparent; }
+  }
+
+  /* Main layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 20px;
+  }
+
+  /* Input Panel */
+  .input-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .panel-header-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-blue);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  }
+
+  .panel-title {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--accent-blue);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .panel-body {
+    padding: 16px;
+  }
+
+  /* Input groups */
+  .input-group {
+    margin-bottom: 14px;
+  }
+
+  .input-group:last-child { margin-bottom: 0; }
+
+  .input-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 5px;
+  }
+
+  .input-label-text {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+
+  .input-label-unit {
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .input-row:focus-within {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.1);
+  }
+
+  .input-prefix {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+    border-right: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.2);
+    user-select: none;
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .input-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 8px 10px;
+    width: 100%;
+  }
+
+  .input-row input::placeholder { color: var(--text-dim); }
+
+  .input-slider {
+    width: 100%;
+    margin-top: 6px;
+    -webkit-appearance: none;
+    height: 2px;
+    background: var(--border-bright);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .input-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--accent-blue);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .input-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  /* Divider */
+  .input-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .input-divider-line { flex: 1; height: 1px; background: var(--border); }
+  .input-divider-text { font-size: 9px; color: var(--text-dim); letter-spacing: 0.12em; }
+
+  /* Output Panel */
+  .output-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Results grid */
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .result-block {
+    background: var(--bg-card);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.3s;
+  }
+
+  .result-block::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-blue);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+  }
+
+  .result-block:hover::after { transform: scaleX(1); }
+
+  .result-block-tag {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .result-block-tag::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    background: var(--accent-cyan);
+  }
+
+  .result-value {
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+    margin-bottom: 4px;
+  }
+
+  .result-value.positive { color: var(--accent-green); }
+  .result-value.warning { color: var(--accent-amber); }
+  .result-value.negative { color: var(--accent-red); }
+
+  .result-desc {
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .result-benchmark {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: 9px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .benchmark-bar-bg {
+    flex: 1;
+    height: 3px;
+    background: var(--border-bright);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .benchmark-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent-blue);
+    transition: width 0.5s ease;
+    max-width: 100%;
+  }
+
+  /* 5-Year Projection */
+  .projection-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .projection-table th {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding: 6px 10px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .projection-table th:first-child { text-align: left; }
+
+  .projection-table td {
+    padding: 7px 10px;
+    font-size: 12px;
+    text-align: right;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(26, 37, 64, 0.5);
+    transition: all 0.3s ease;
+  }
+
+  .projection-table td:first-child {
+    text-align: left;
+    color: var(--text-dim);
+    font-size: 10px;
+  }
+
+  .projection-table tr:last-child td { border-bottom: none; }
+  .projection-table tr:hover td { background: rgba(0, 102, 255, 0.04); color: var(--text-primary); }
+
+  .positive-td { color: var(--accent-green) !important; }
+  .warning-td { color: var(--accent-amber) !important; }
+
+  /* Cash flow bar chart */
+  .cashflow-chart {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cf-year-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cf-year-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .cf-bar-track {
+    flex: 1;
+    height: 18px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cf-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .cf-bar-fill.negative {
+    background: linear-gradient(90deg, var(--accent-red), #ff6b6b);
+  }
+
+  .cf-value {
+    font-size: 11px;
+    color: var(--text-secondary);
+    width: 80px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    background: rgba(0, 0, 0, 0.3);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+  }
+
+  .status-item { display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--text-dim); }
+  .status-dot.active { background: var(--accent-green); }
+
+  /* Responsive */
+  @media (max-width: 960px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: repeat(3, 1fr); }
+    .results-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Tooltip */
+  [data-tip] { position: relative; cursor: help; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a2540;
+    color: var(--text-primary);
+    font-size: 10px;
+    padding: 5px 8px;
+    white-space: nowrap;
+    border: 1px solid var(--border-bright);
+    z-index: 100;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="terminal-badge">CRE ANALYTICS</div>
+      <div class="header-title">COMMERCIAL <span>REAL ESTATE</span> CALCULATOR</div>
+    </div>
+    <div class="header-right">
+      <div class="live-indicator">
+        <div class="live-dot"></div>
+        LIVE CALC
+      </div>
+      <div class="timestamp" id="timestamp"></div>
+    </div>
+  </div>
+
+  <!-- Key Metrics Summary Card -->
+  <div class="metrics-summary">
+    <div class="metrics-header">
+      <div class="metrics-label">▶ KEY METRICS SUMMARY</div>
+      <div class="deal-score">
+        DEAL SCORE &nbsp;
+        <span class="score-value" id="dealScore">—</span>
+      </div>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-cell" data-tip="Net Operating Income">
+        <div class="metric-cell-label">NOI / YR</div>
+        <div class="metric-cell-value" id="sum-noi">—</div>
+        <div class="metric-cell-sub">NET OPER. INCOME</div>
+      </div>
+      <div class="metric-cell" data-tip="Capitalization Rate">
+        <div class="metric-cell-label">CAP RATE</div>
+        <div class="metric-cell-value" id="sum-cap">—</div>
+        <div class="metric-cell-sub">BENCHMARK: 5–8%</div>
+      </div>
+      <div class="metric-cell" data-tip="Cash-on-Cash Return">
+        <div class="metric-cell-label">COC RETURN</div>
+        <div class="metric-cell-value" id="sum-coc">—</div>
+        <div class="metric-cell-sub">BENCHMARK: 8–12%</div>
+      </div>
+      <div class="metric-cell" data-tip="Debt Service Coverage Ratio">
+        <div class="metric-cell-label">DSCR</div>
+        <div class="metric-cell-value" id="sum-dscr">—</div>
+        <div class="metric-cell-sub">MIN LENDER: 1.25x</div>
+      </div>
+      <div class="metric-cell" data-tip="5-Year Internal Rate of Return">
+        <div class="metric-cell-label">5-YR IRR</div>
+        <div class="metric-cell-value" id="sum-irr">—</div>
+        <div class="metric-cell-sub">TARGET: &gt;12%</div>
+      </div>
+      <div class="metric-cell" data-tip="Break-even Occupancy Rate">
+        <div class="metric-cell-label">BREAK-EVEN OCC.</div>
+        <div class="metric-cell-value" id="sum-beo">—</div>
+        <div class="metric-cell-sub">LOWER IS SAFER</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="main-grid">
+
+    <!-- Input Panel -->
+    <div class="input-panel">
+
+      <!-- Acquisition -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-dot"></div>
+          <div class="panel-title">ACQUISITION PARAMETERS</div>
+        </div>
+        <div class="panel-body">
+          <div class="input-group">
+            <div class="input-label">
+              <span class="input-label-text">Purchase Price</span>
+              <span class="input-label-unit">USD</span>
+            </div>
+            <div class="input-row">
+              <span class="input-prefix">$</span>
+              <input type="number" id="purchasePrice" value="2500000" min="0" step="10000">
+            </div>
+          </div>
+          <div class="input-group">
+            <div class="input-label">
+              <span class="input-label-text">Down Payment</span>
+              <span class="input-label-unit" id="dpLabel">25.0%</span>
+            </div>
+            <div class="input-row">
+              <span class="input-prefix">%</span>
+              <input type="number" id="downPayment" value="25" min="1" max="100" step="1">
+            </div>
+            <input type="range" class="input-slider" id="dpSlider" min="5" max="50" value="25" step="1">
+          </div>
+          <div class="input-group">
+            <div class="input-label">
+              <span class="input-label-text">Expected Annual Appreciation</span>
+              <span class="input-label-unit" id="appLabel">3.0%</span>
+            </div>
+            <div class="input-row">
+              <span class="input-prefix">%</span>
+              <input type="number" id="appreciation" value="3" min="0" max="20" step="0.1">
+            </div>
+            <input type="range" class="input-slider" id="appSlider" min="0" max="10" value="3" step="0.5">
+          </div>
+        </div>
+      </div>
+
+      <!-- Income & Expenses -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-dot"></div>
+          <div class="panel-title">INCOME & EXPENSES</div>
+        </div>
+        <div class="panel-body">
+          <div class="input-group">
+            <div class="input-label">
+              <span class="input-label-text">Annual Rental Income</span>
+              <span class="input-label-unit">GROSS</span>
+            </div>
+            <div class="input-row">
+              <span class="input-prefix">$</span>
+              <input type="number" id="rentalIncome" value="220000" min="0" step="1000">
+            </div>
+          </div>
+          <div class="input-group">
+            <div class="input-label">
+              <span class="input-label-text">Annual Operating Expenses</span>
+              <span class="input-label-unit">OPEX</span>
+            </div>
+            <div class="input-row">
+              <span class="input-prefix">$</span>
+              <input type="number" id="opex" value="55000" min="0" step="1000">
+            </div>
+          </div>
+          <div class="input-divider">
+            <div class="input-divider-line"></div>
+            <div class="input-divider-text">EXPENSE RATIO</div>
+            <div class="input-divider-line"></div>
+          </div>
+          <div class="input-group">
+            <div class="input-label" style="justify-content:space-between">
+              <span class="input-label-text" style="color:var(--text-dim)">Expenses / Income</span>
+              <span class="input-label-unit" id="expRatio" style="color:var(--accent-amber)">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financing -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-dot"></div>
+          <div class="panel-title">DEBT FINANCING</div>
+        </div>
+        <div class="panel-body">
+          <div class="input-group">
+            <div class="input-label">
+              <span class="input-label-text">Interest Rate</span>
+              <span class="input-label-unit" id="rateLabel">6.5%</span>
+            </div>
+            <div class="input-row">
+              <span class="input-prefix">%</span>
+              <input type="number" id="interestRate" value="6.5" min="0" max="25" step="0.1">
+            </div>
+            <input type="range" class="input-slider" id="rateSlider" min="3" max="12" value="6.5" step="0.25">
+          </div>
+          <div class="input-group">
+            <div class="input-label">
+              <span class="input-label-text">Loan Term</span>
+              <span class="input-label-unit" id="termLabel">30 YRS</span>
+            </div>
+            <div class="input-row">
+              <span class="input-prefix">YR</span>
+              <input type="number" id="loanTerm" value="30" min="5" max="30" step="5">
+            </div>
+            <input type="range" class="input-slider" id="termSlider" min="5" max="30" value="30" step="5">
+          </div>
+          <div class="input-divider">
+            <div class="input-divider-line"></div>
+            <div class="input-divider-text">COMPUTED</div>
+            <div class="input-divider-line"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div>
+              <div class="input-label-text" style="font-size:9px;margin-bottom:4px">LOAN AMOUNT</div>
+              <div style="font-size:13px;color:var(--text-primary)" id="loanAmt">—</div>
+            </div>
+            <div>
+              <div class="input-label-text" style="font-size:9px;margin-bottom:4px">ANN. DEBT SVC</div>
+              <div style="font-size:13px;color:var(--text-primary)" id="annualDS">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Output Panel -->
+    <div class="output-panel">
+
+      <!-- Results Grid -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-dot"></div>
+          <div class="panel-title">ANALYSIS OUTPUT</div>
+        </div>
+        <div class="results-grid" style="border:none;gap:1px;background:var(--border)">
+
+          <div class="result-block">
+            <div class="result-block-tag" data-tip="NOI = Gross Income - Operating Expenses">NET OPERATING INCOME</div>
+            <div class="result-value" id="r-noi">—</div>
+            <div class="result-desc">Annual income after operating<br>expenses, before debt service</div>
+            <div class="result-benchmark">
+              <span>OPEX RATIO</span>
+              <div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-opex" style="width:0%"></div></div>
+              <span id="bm-opex">—</span>
+            </div>
+          </div>
+
+          <div class="result-block">
+            <div class="result-block-tag" data-tip="Cap Rate = NOI / Purchase Price">CAPITALIZATION RATE</div>
+            <div class="result-value" id="r-cap">—</div>
+            <div class="result-desc">Unlevered return on asset.<br>Market benchmark: 5–8%</div>
+            <div class="result-benchmark">
+              <span>VS BENCHMARK</span>
+              <div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-cap" style="width:0%"></div></div>
+              <span id="bm-cap">—</span>
+            </div>
+          </div>
+
+          <div class="result-block">
+            <div class="result-block-tag" data-tip="CoC = Annual Cash Flow / Equity Invested">CASH-ON-CASH RETURN</div>
+            <div class="result-value" id="r-coc">—</div>
+            <div class="result-desc">Pre-tax cash yield on equity<br>deployed. Target: 8–12%</div>
+            <div class="result-benchmark">
+              <span>VS 10% TARGET</span>
+              <div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-coc" style="width:0%"></div></div>
+              <span id="bm-coc">—</span>
+            </div>
+          </div>
+
+          <div class="result-block">
+            <div class="result-block-tag" data-tip="DSCR = NOI / Annual Debt Service">DEBT SERVICE COVERAGE</div>
+            <div class="result-value" id="r-dscr">—</div>
+            <div class="result-desc">Lenders require ≥ 1.25x.<br>Higher = more cushion</div>
+            <div class="result-benchmark">
+              <span>VS 1.25x MIN</span>
+              <div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-dscr" style="width:0%"></div></div>
+              <span id="bm-dscr">—</span>
+            </div>
+          </div>
+
+          <div class="result-block">
+            <div class="result-block-tag" data-tip="IRR approximated over 5-year hold period">5-YEAR IRR (SIMPLIFIED)</div>
+            <div class="result-value" id="r-irr">—</div>
+            <div class="result-desc">Levered total return incl.<br>appreciation + cash flows</div>
+            <div class="result-benchmark">
+              <span>VS 12% TARGET</span>
+              <div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-irr" style="width:0%"></div></div>
+              <span id="bm-irr">—</span>
+            </div>
+          </div>
+
+          <div class="result-block">
+            <div class="result-block-tag" data-tip="Occupancy needed to cover all costs">BREAK-EVEN OCCUPANCY</div>
+            <div class="result-value" id="r-beo">—</div>
+            <div class="result-desc">Min. occupancy to cover OPEX<br>+ debt service. Lower = safer</div>
+            <div class="result-benchmark">
+              <span>SAFETY MARGIN</span>
+              <div class="benchmark-bar-bg"><div class="benchmark-bar-fill" id="bar-beo" style="width:0%"></div></div>
+              <span id="bm-beo">—</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 5-Year Projection Table -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-dot"></div>
+          <div class="panel-title">5-YEAR PROJECTION</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="projection-table" style="padding:0 4px">
+            <thead>
+              <tr>
+                <th>YEAR</th>
+                <th>PROP. VALUE</th>
+                <th>GROSS INCOME</th>
+                <th>NOI</th>
+                <th>DEBT SVC</th>
+                <th>CASH FLOW</th>
+                <th>EQUITY</th>
+              </tr>
+            </thead>
+            <tbody id="projectionBody">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Cash Flow Bar Chart -->
+        <div class="panel-header" style="margin-top:1px;border-top:1px solid var(--border)">
+          <div class="panel-header-dot" style="background:var(--accent-cyan)"></div>
+          <div class="panel-title" style="color:var(--accent-cyan)">ANNUAL CASH FLOW VISUALIZATION</div>
+        </div>
+        <div class="cashflow-chart" id="cfChart"></div>
+
+        <!-- Status bar -->
+        <div class="status-bar">
+          <div style="display:flex;gap:16px">
+            <div class="status-item"><div class="status-dot active"></div> REAL-TIME CALC ENGINE</div>
+            <div class="status-item"><div class="status-dot"></div> SIMPLIFIED IRR MODEL</div>
+            <div class="status-item"><div class="status-dot"></div> STRAIGHT-LINE APPR.</div>
+          </div>
+          <div>DISCLAIMER: FOR ANALYTICAL USE ONLY — NOT FINANCIAL ADVICE</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Timestamp
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('timestamp').textContent =
+      now.toLocaleDateString('en-US', {month:'short',day:'2-digit',year:'numeric'}) + '  ' +
+      now.toLocaleTimeString('en-US', {hour12:false});
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
+
+  // Slider syncing
+  const sliderPairs = [
+    ['dpSlider', 'downPayment', 'dpLabel', v => v.toFixed(1) + '%'],
+    ['appSlider', 'appreciation', 'appLabel', v => v.toFixed(1) + '%'],
+    ['rateSlider', 'interestRate', 'rateLabel', v => v.toFixed(2) + '%'],
+    ['termSlider', 'loanTerm', 'termLabel', v => v.toFixed(0) + ' YRS'],
+  ];
+
+  sliderPairs.forEach(([sliderId, inputId, labelId, fmt]) => {
+    const slider = document.getElementById(sliderId);
+    const input = document.getElementById(inputId);
+    const label = document.getElementById(labelId);
+
+    slider.addEventListener('input', () => {
+      input.value = slider.value;
+      if (label) label.textContent = fmt(parseFloat(slider.value));
+      calculate();
+    });
+    input.addEventListener('input', () => {
+      slider.value = input.value;
+      if (label) label.textContent = fmt(parseFloat(input.value) || 0);
+      calculate();
+    });
+  });
+
+  // All other inputs trigger calculate
+  ['purchasePrice','rentalIncome','opex'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calculate);
+  });
+
+  function fmt$(n) {
+    if (isNaN(n) || !isFinite(n)) return '—';
+    if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+    if (Math.abs(n) >= 1e3) return '$' + Math.round(n).toLocaleString();
+    return '$' + n.toFixed(0);
+  }
+
+  function fmtPct(n, decimals=1) {
+    if (isNaN(n) || !isFinite(n)) return '—';
+    return n.toFixed(decimals) + '%';
+  }
+
+  function fmtX(n) {
+    if (isNaN(n) || !isFinite(n)) return '—';
+    return n.toFixed(2) + 'x';
+  }
+
+  function flashEl(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('value-update');
+    void el.offsetWidth;
+    el.classList.add('value-update');
+  }
+
+  function colorClass(value, thresholds) {
+    // thresholds: [good, warn] — above good=positive, above warn=warning, else negative
+    if (value >= thresholds[0]) return 'positive';
+    if (value >= thresholds[1]) return 'warning';
+    return 'negative';
+  }
+
+  function setResult(id, text, cls) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'result-value ' + (cls || '');
+  }
+
+  function setSummary(id, text, cls) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'metric-cell-value ' + (cls || '');
+  }
+
+  function setBar(barId, labelId, pct, labelText) {
+    const bar = document.getElementById(barId);
+    const lbl = document.getElementById(labelId);
+    if (bar) bar.style.width = Math.min(Math.max(pct, 0), 100) + '%';
+    if (lbl) lbl.textContent = labelText;
+  }
+
+  // Annual payment (mortgage)
+  function calcAnnualDebtService(principal, annualRate, termYears) {
+    if (annualRate === 0) return principal / termYears;
+    const r = annualRate / 12;
+    const n = termYears * 12;
+    const monthly = principal * r * Math.pow(1+r, n) / (Math.pow(1+r, n) - 1);
+    return monthly * 12;
+  }
+
+  // Remaining loan balance
+  function loanBalance(principal, annualRate, termYears, yearsPaid) {
+    if (annualRate === 0) return principal - (principal / termYears) * yearsPaid;
+    const r = annualRate / 12;
+    const n = termYears * 12;
+    const p = yearsPaid * 12;
+    return principal * (Math.pow(1+r, n) - Math.pow(1+r, p)) / (Math.pow(1+r, n) - 1);
+  }
+
+  // Simplified IRR via Newton's method
+  function calcIRR(cashflows) {
+    let rate = 0.1;
+    for (let iter = 0; iter < 200; iter++) {
+      let npv = 0, dnpv = 0;
+      cashflows.forEach((cf, t) => {
+        npv += cf / Math.pow(1 + rate, t);
+        dnpv -= t * cf / Math.pow(1 + rate, t + 1);
+      });
+      if (Math.abs(npv) < 0.01) break;
+      rate -= npv / dnpv;
+      if (rate < -0.99) rate = -0.99;
+    }
+    return rate;
+  }
+
+  function calculate() {
+    const price = parseFloat(document.getElementById('purchasePrice').value) || 0;
+    const dpPct = parseFloat(document.getElementById('downPayment').value) || 0;
+    const income = parseFloat(document.getElementById('rentalIncome').value) || 0;
+    const opex = parseFloat(document.getElementById('opex').value) || 0;
+    const rate = parseFloat(document.getElementById('interestRate').value) || 0;
+    const term = parseFloat(document.getElementById('loanTerm').value) || 30;
+    const apprPct = parseFloat(document.getElementById('appreciation').value) || 0;
+
+    const equity = price * dpPct / 100;
+    const loan = price - equity;
+    const annualDS = calcAnnualDebtService(loan, rate / 100, term);
+    const noi = income - opex;
+    const capRate = price > 0 ? noi / price * 100 : 0;
+    const cashFlow = noi - annualDS;
+    const coc = equity > 0 ? cashFlow / equity * 100 : 0;
+    const dscr = annualDS > 0 ? noi / annualDS : 0;
+    const expRatio = income > 0 ? opex / income * 100 : 0;
+    const beo = income > 0 ? (opex + annualDS) / income * 100 : 0;
+
+    // 5-Year IRR: cash flows = [-equity, CF1...CF4, CF5 + sale proceeds]
+    const cashflows = [-equity];
+    for (let y = 1; y <= 5; y++) {
+      const propValue = price * Math.pow(1 + apprPct / 100, y);
+      const yearIncome = income * Math.pow(1.03, y - 1); // assume 3% income growth
+      const yearOpex = opex * Math.pow(1.025, y - 1);
+      const yearNOI = yearIncome - yearOpex;
+      const yearCF = yearNOI - annualDS;
+      if (y < 5) {
+        cashflows.push(yearCF);
+      } else {
+        const remaining = loanBalance(loan, rate / 100, term, 5);
+        const saleProceeds = propValue - remaining - propValue * 0.05; // 5% selling cost
+        cashflows.push(yearCF + saleProceeds);
+      }
+    }
+    const irr = calcIRR(cashflows) * 100;
+
+    // Display computed financials
+    document.getElementById('loanAmt').textContent = fmt$(loan);
+    document.getElementById('annualDS').textContent = fmt$(annualDS);
+    document.getElementById('expRatio').textContent = fmtPct(expRatio);
+
+    // NOI
+    setResult('r-noi', fmt$(noi), colorClass(noi, [0, -Infinity]));
+    setSummary('sum-noi', fmt$(noi), colorClass(noi, [0, -Infinity]));
+    setBar('bar-opex', 'bm-opex', expRatio, fmtPct(expRatio));
+
+    // Cap Rate
+    const capCls = colorClass(capRate, [6, 4]);
+    setResult('r-cap', fmtPct(capRate), capCls);
+    setSummary('sum-cap', fmtPct(capRate), capCls);
+    setBar('bar-cap', 'bm-cap', capRate / 10 * 100, fmtPct(capRate));
+
+    // CoC
+    const cocCls = colorClass(coc, [8, 4]);
+    setResult('r-coc', fmtPct(coc), cocCls);
+    setSummary('sum-coc', fmtPct(coc), cocCls);
+    setBar('bar-coc', 'bm-coc', coc / 10 * 100, fmtPct(coc));
+
+    // DSCR
+    const dscrCls = colorClass(dscr, [1.5, 1.25]);
+    setResult('r-dscr', fmtX(dscr), dscrCls);
+    setSummary('sum-dscr', fmtX(dscr), dscrCls);
+    setBar('bar-dscr', 'bm-dscr', dscr / 2 * 100, fmtX(dscr));
+
+    // IRR
+    const irrCls = colorClass(irr, [15, 10]);
+    setResult('r-irr', fmtPct(irr), irrCls);
+    setSummary('sum-irr', fmtPct(irr), irrCls);
+    setBar('bar-irr', 'bm-irr', irr / 20 * 100, fmtPct(irr));
+
+    // BEO
+    const beoCls = beo < 70 ? 'positive' : beo < 85 ? 'warning' : 'negative';
+    setResult('r-beo', fmtPct(beo), beoCls);
+    setSummary('sum-beo', fmtPct(beo), beoCls);
+    const safetyMargin = Math.max(0, 100 - beo);
+    setBar('bar-beo', 'bm-beo', safetyMargin, fmtPct(safetyMargin) + ' MARGIN');
+
+    // Deal score
+    let score = 0;
+    if (capRate >= 6) score += 20; else if (capRate >= 4) score += 10;
+    if (coc >= 8) score += 20; else if (coc >= 4) score += 10;
+    if (dscr >= 1.5) score += 20; else if (dscr >= 1.25) score += 10;
+    if (irr >= 15) score += 20; else if (irr >= 10) score += 10;
+    if (beo < 70) score += 20; else if (beo < 85) score += 10;
+    const scoreEl = document.getElementById('dealScore');
+    scoreEl.textContent = score + '/100';
+    scoreEl.style.color = score >= 80 ? 'var(--accent-green)' : score >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)';
+
+    // Build projection table
+    const tbody = document.getElementById('projectionBody');
+    tbody.innerHTML = '';
+    const maxCF = Math.max(...[1,2,3,4,5].map(y => {
+      const yInc = income * Math.pow(1.03, y-1);
+      const yOp = opex * Math.pow(1.025, y-1);
+      return yInc - yOp - annualDS;
+    }));
+
+    for (let y = 1; y <= 5; y++) {
+      const propVal = price * Math.pow(1 + apprPct / 100, y);
+      const yInc = income * Math.pow(1.03, y - 1);
+      const yOp = opex * Math.pow(1.025, y - 1);
+      const yNOI = yInc - yOp;
+      const yCF = yNOI - annualDS;
+      const remLoan = loanBalance(loan, rate / 100, term, y);
+      const eq = propVal - remLoan;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>YEAR ${y}</td>
+        <td>${fmt$(propVal)}</td>
+        <td>${fmt$(yInc)}</td>
+        <td class="${yNOI >= 0 ? 'positive-td' : 'warning-td'}">${fmt$(yNOI)}</td>
+        <td>${fmt$(annualDS)}</td>
+        <td class="${yCF >= 0 ? 'positive-td' : 'warning-td'}">${fmt$(yCF)}</td>
+        <td class="positive-td">${fmt$(eq)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    // Cash flow chart
+    const chartEl = document.getElementById('cfChart');
+    chartEl.innerHTML = '';
+    const allCFs = [1,2,3,4,5].map(y => {
+      const yInc = income * Math.pow(1.03, y-1);
+      const yOp = opex * Math.pow(1.025, y-1);
+      return yInc - yOp - annualDS;
+    });
+    const maxAbsCF = Math.max(...allCFs.map(Math.abs), 1);
+
+    allCFs.forEach((cf, i) => {
+      const pct = (Math.abs(cf) / maxAbsCF) * 100;
+      const row = document.createElement('div');
+      row.className = 'cf-year-row';
+      row.innerHTML = `
+        <div class="cf-year-label">YR ${i+1}</div>
+        <div class="cf-bar-track">
+          <div class="cf-bar-fill ${cf < 0 ? 'negative' : ''}" style="width:${pct}%"></div>
+        </div>
+        <div class="cf-value ${cf >= 0 ? '' : 'negative-td'}">${fmt$(cf)}</div>
+      `;
+      chartEl.appendChild(row);
+    });
+
+    // Flash summary values
+    ['sum-noi','sum-cap','sum-coc','sum-dscr','sum-irr','sum-beo'].forEach(flashEl);
+  }
+
+  // Initial calculation
+  calculate();
+</script>
+
+</body>
+</html>
